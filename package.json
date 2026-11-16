@@ -1,0 +1,1 @@
+{"name":"europe-trip-collab","version":"1.0.0","private":true,"type":"module","scripts":{"dev":"vite","build":"vite build","preview":"vite preview"},"dependencies":{"@liveblocks/client":"^3.0.0","@liveblocks/node":"^3.0.0","@liveblocks/yjs":"^3.0.0","yjs":"^13.6.27"},"devDependencies":{"vite":"^6.1.0"},"engines":{"node":">=22"}}
