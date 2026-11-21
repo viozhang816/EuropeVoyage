@@ -6,11 +6,11 @@ export default async function handler(req,res) {
   if(!sameOrigin(req)) return res.status(403).end();
   const user=currentUser(req);
   if(!user) return res.status(401).json({error:'请重新登录'});
-  if(req.body?.room!=='europe-trip-v1') return res.status(403).end();
+  if(req.body?.room!=='europe-trip-20261121-c9a80ba45989') return res.status(403).end();
   try {
     const liveblocks=new Liveblocks({secret:process.env.LIVEBLOCKS_SECRET_KEY});
     const session=liveblocks.prepareSession('editor-'+user.id,{userInfo:{name:'旅伴 '+user.id}});
-    session.allow('europe-trip-v1',session.FULL_ACCESS);
+    session.allow('europe-trip-20261121-c9a80ba45989',session.FULL_ACCESS);
     const {body,status}=await session.authorize();
     res.setHeader('Content-Type','application/json');
     return res.status(status).send(body);
