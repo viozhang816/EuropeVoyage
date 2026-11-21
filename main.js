@@ -8,7 +8,7 @@ let remoteFocus, composition;
 let flt='all';
 const bindings=new WeakMap();
 const ST=['待订','已订','无需'],MD=[['transit','🚇'],['walking','🚶'],['driving','🚗']],TABS=[['plan','行程'],['book','预订'],['check','清单'],['todo','待决定']];
-const $=s=>document.querySelector(s);
+let EDIT=false;const $=s=>document.querySelector(s);
 const H=()=>{const p=(location.hash||'#plan').slice(1).split('-');return{tab:TABS.some(x=>x[0]==p[0])?p[0]:'plan',open:p[1]===undefined?-1:+p[1]}};
 let cur=H();
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -18,15 +18,14 @@ function sel(p,v,o,r){return '<select data-p="'+p+'"'+(typeof v=='number'?' data
 function ta(p,v){return '<textarea data-p="'+p+'" rows="'+Math.max(1,String(v||'').split('\n').length)+'">'+esc(v)+'</textarea>'}
 function render(){
 $('#nav').innerHTML=TABS.map(t=>'<a href="#'+t[0]+'" class="'+(t[0]==cur.tab?'on':'')+'">'+t[1]+'</a>').join('');
-
 let h='';const tab=cur.tab;
-if(tab=='plan')S.days.forEach((d,i)=>{
+if(tab=='plan'&&!EDIT)h+=VIEW();if(tab=='plan'&&EDIT)h+='<button class="edbtn" data-ed="1">✅ 完成编辑，回到查看</button>';if(tab=='plan'&&EDIT)S.days.forEach((d,i)=>{
 h+='<details data-i="'+i+'"'+(cur.open==i?' open':'')+'><summary><span class="d">'+esc(d.d)+'</span><span class="c">'+esc(d.c)+'</span><span class="b s'+d.st+'">'+ST[d.st]+'</span></summary><div class="body">'
 +'<div><label>标题 · 购票状态</label><div style="display:flex;gap:6px"><input type="text" data-p="days.'+i+'.c" data-r="1" value="'+esc(d.c)+'">'+sel('days.'+i+'.st',d.st,ST)+'</div></div>'
-+'<div><label>🏨 住宿</label><input type="text" data-p="days.'+i+'.stay" value="'+esc(d.stay)+'"></div>'
-+'<div><label>✈️ 大交通</label>'+ta('days.'+i+'.fly',d.fly)+'</div>'
++'<div><label>🏨 住宿</label><input type="text" data-p="days.'+i+'.stay" value="'+esc(d.stay)+'"></div><div><label>📍 酒店地址</label><input type="text" data-p="days.'+i+'.addr" placeholder="街道、门牌号、城市" value="'+esc(d.addr)+'"></div>'+'<div><label>📍 景点（一个一个加，点“地图”在 Google 地图上看）</label>'+(Array.isArray(d.spots)?d.spots:[]).map((x,j)=>{const p='days.'+i+'.spots.'+j;return '<div class="spt"><input type="text" data-p="'+p+'.0" data-r="1" placeholder="景点名称（英文更好搜）" value="'+esc(x[0])+'"><input type="text" data-p="'+p+'.1" placeholder="时间 / 门票 / 备注" value="'+esc(x[1])+'">'+(x[0]?'<a class="map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(x[0])+'" target="_blank" rel="noopener">地图</a>':'')+'<button class="x" data-del="'+p+'">×</button></div>'}).join('')+'<button data-add="spot.'+i+'">＋ 添加景点</button></div>'
++'<div><label>✈️ 交通（一个一个加：航班 / 火车 / 大巴）</label>'+(Array.isArray(d.trans)?d.trans:[]).map((x,j)=>{const p='days.'+i+'.trans.'+j;return '<div class="spt"><input type="text" data-p="'+p+'.0" data-r="1" placeholder="班次与起止，如 VY8134 巴塞罗那 → 尼斯" value="'+esc(x[0])+'"><input type="text" data-p="'+p+'.1" placeholder="时间 / 座位 / 行李 / 备注" value="'+esc(x[1])+'"><button class="x" data-del="'+p+'">×</button></div>'}).join('')+'<button data-add="tr.'+i+'">＋ 添加交通</button>'+(d.fly?ta('days.'+i+'.fly',d.fly):'')+'</div>'
 +'<div><label>🗺️ 路线（点按钮用 Google 地图看路线）</label>'+d.legs.map((l,j)=>{const p='days.'+i+'.legs.'+j;return '<div class="leg"><input type="text" data-p="'+p+'.0" data-r="1" placeholder="起点" value="'+esc(l[0])+'"><span>→</span><input type="text" data-p="'+p+'.1" data-r="1" placeholder="终点" value="'+esc(l[1])+'"><div class="r2">'+sel(p+'.2',l[2],MD)+'<input type="text" data-p="'+p+'.3" placeholder="时间/备注" value="'+esc(l[3])+'"><a class="map" href="'+esc(gm(l))+'" target="_blank" rel="noopener">地图</a><button class="x" data-del="'+p+'">×</button></div></div>'}).join('')+'<button data-add="leg.'+i+'">＋ 添加路线</button></div>'
-+'<div><label>🎫 票务</label>'+ta('days.'+i+'.tix',d.tix)+'</div><div><label>📝 备注</label>'+ta('days.'+i+'.note',d.note)+'</div></div></details>'});
++'<div><label>🎫 票务</label>'+ta('days.'+i+'.tix',d.tix)+'</div><div><label>📝 备注</label>'+ta('days.'+i+'.note',d.note)+'</div><div><label>🔗 官网链接（每行：名称 | 网址）</label>'+ta('days.'+i+'.links',d.links)+'</div></div></details>'});
 if(tab=='book'){const n=S.book.filter(b=>b[2]==1).length;h+='<div class="card"><b>已订 '+n+' / '+S.book.length+'</b><div class="bar"><i style="width:'+(n/S.book.length*100)+'%"></i></div></div><div class="row hd"><span>项目</span><span>日期</span><span>状态</span><span>负责人</span><span>订单号 / 链接</span><span></span></div>';
 S.book.forEach((b,i)=>{const p='book.'+i;h+='<div class="row"><input type="text" class="wide" data-p="'+p+'.0" value="'+esc(b[0])+'"><input type="text" data-p="'+p+'.1" value="'+esc(b[1])+'">'+sel(p+'.2',b[2],ST)+'<input type="text" data-p="'+p+'.3" placeholder="谁订" value="'+esc(b[3])+'"><input type="text" class="wide" data-p="'+p+'.4" placeholder="订单号/链接" value="'+esc(b[4])+'"><button class="x" data-del="'+p+'">×</button></div>'});
 h+='<button data-add="book">＋ 添加</button>'}
@@ -37,8 +36,23 @@ S.chk.forEach((g,gi)=>{const vis=g[1].map((it,i)=>[it,i]).filter(v=>flt=='all'||
 h+='<div class="card"><h3>'+esc(g[0])+'</h3>'+vis.map(v=>{const it=v[0],p='chk.'+gi+'.1.'+v[1],both=it[2]=='both',ok=both?it[1]&&it[3]:it[1];
 return '<div class="it'+(ok?' done':'')+'"><div class="t"><input type="text" data-p="'+p+'.0" value="'+esc(it[0])+'"><button class="x" data-del="'+p+'">×</button></div><div class="w">'+sel(p+'.2',it[2],W)+'<label class="cb"><input type="checkbox" data-p="'+p+'.1" data-c="1" '+(it[1]?'checked':'')+'>'+(both?esc(N[0]):'已带')+'</label>'+(both?'<label class="cb"><input type="checkbox" data-p="'+p+'.3" data-c="1" '+(it[3]?'checked':'')+'>'+esc(N[1])+'</label>':'')+'</div></div>'}).join('')+'<button data-add="chk.'+gi+'">＋ 添加</button></div>'})}
 if(tab=='todo')h+='<div class="card">'+S.todo.map((x,i)=>'<div class="ck'+(x[1]?' done':'')+'"><input type="checkbox" data-p="todo.'+i+'.1" data-c="1" '+(x[1]?'checked':'')+'><input type="text" data-p="todo.'+i+'.0" value="'+esc(x[0])+'"><button class="x" data-del="todo.'+i+'">×</button></div>').join('')+'<button data-add="todo">＋ 添加</button></div>';
-$('#root').innerHTML=h;
-bindFields()}
+$('#root').innerHTML=h;bindFields();if(tab=='plan'&&!EDIT&&!window.__sc){const e=document.querySelector('.day.today');if(e){window.__sc=1;e.scrollIntoView()}}
+}
+function lk(t){return String(t||'').split('\n').map(x=>{const i=x.lastIndexOf('|');if(i<0)return null;const l=x.slice(0,i).trim(),u=x.slice(i+1).trim();return /^https?:\/\//.test(u)?[l||u,u]:null}).filter(Boolean)}
+function tdy(){const n=new Date();return String(n.getMonth()+1).padStart(2,'0')+'/'+String(n.getDate()).padStart(2,'0')}
+function VIEW(){const td=tdy(),IC={transit:'🚇',walking:'🚶',driving:'🚗'},A=' target="_blank" rel="noopener"';
+let h='<div class="vbar">'+S.days.map((d,i)=>'<a href="#plan-'+i+'" class="'+(String(d.d).slice(0,5)==td?'td':'')+'">'+esc(String(d.d).slice(0,5))+'</a>').join('')+'</div>';
+h+='<button class="edbtn" data-ed="1">✏️ 编辑行程</button>';
+S.days.forEach((d,i)=>{const isT=String(d.d).slice(0,5)==td,st=d.stay||'',ok=st&&st!='—'&&!/待|同/.test(st),q=d.addr||st;
+h+='<section class="day'+(isT?' today':'')+'" id="day-'+i+'"><div class="dh"><span class="dd">'+esc(d.d)+'</span><span class="dc">'+esc(d.c)+'</span>'+(isT?'<span class="tg">今天</span>':'')+'</div>';
+h+='<div class="sec"><div class="lb">🏨 住宿</div><div class="tx">'+esc(st||'—')+(d.addr?'<div class="sub">'+esc(d.addr)+'</div>':(ok?'<div class="sub">地址待填</div>':''))+'</div>'+((ok||d.addr)?'<div class="btns"><a class="bt"'+A+' href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q)+'">地图</a>'+(d.addr?'<a class="bt"'+A+' href="https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(d.addr)+'&travelmode=transit">导航</a>':'')+'</div>':'')+'</div>';
+const TR=(Array.isArray(d.trans)?d.trans:[]).filter(x=>x[0]||x[1]),TI=x=>/Italo|火车|Trenitalia|大巴|bus/i.test(x)?'🚆':'✈️';h+='<div class="sec"><div class="lb">✈️ 交通</div><div class="tx">'+(TR.length?TR.map(x=>'<div class="rt"><span>'+TI(x[0])+'</span><span class="rtt">'+esc(x[0])+(x[1]?'<span class="sub" style="display:block">'+esc(x[1])+'</span>':'')+'</span></div>').join(''):'<span class="sub">无</span>')+(d.fly?'<div class="pre sub">'+esc(d.fly)+'</div>':'')+'</div></div>';
+const SPS=d=>Array.isArray(d.spots)?d.spots:[],SQ=n=>'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(n);const SP=SPS(d).filter(x=>x[0]);h+='<div class="sec"><div class="lb">📍 景点</div><div class="tx">'+(SP.length?SP.map(x=>'<a class="rt"'+A+' href="'+esc(SQ(x[0]))+'"><span>📍</span><span class="rtt">'+esc(x[0])+(x[1]?'<span class="sub" style="display:block">'+esc(x[1])+'</span>':'')+'</span><span class="go">›</span></a>').join(''):'<span class="sub">待填，点“编辑行程”→“＋ 添加景点”</span>')+'</div></div>';const L=(d.legs||[]).filter(l=>l[0]&&l[1]);if(!L.length)h+='<div class="sec"><div class="lb">🗺️ 路线</div><div class="tx"><span class="sub">待填，点“编辑行程”→“＋ 添加路线”</span></div></div>';
+if(L.length)h+='<div class="sec"><div class="lb">🗺️ 路线</div><div class="tx">'+L.map(l=>'<a class="rt"'+A+' href="'+esc(gm(l))+'"><span>'+(IC[l[2]]||'🚇')+'</span><span class="rtt">'+esc(l[0])+' → '+esc(l[1])+(l[3]?'<span class="sub" style="display:block">'+esc(l[3])+'</span>':'')+'</span><span class="go">›</span></a>').join('')+'</div></div>';
+if(d.tix)h+='<div class="sec"><div class="lb">🎫 票务</div><div class="tx pre">'+esc(d.tix)+'</div></div>';
+if(d.note)h+='<div class="sec"><div class="lb">📝 备注</div><div class="tx pre">'+esc(d.note)+'</div></div>';
+const K=lk(d.links);if(K.length)h+='<div class="sec"><div class="lb">🔗 官网</div><div class="tx chips">'+K.map(k=>'<a'+A+' href="'+esc(k[1])+'">'+esc(k[0])+'</a>').join('')+'</div></div>';
+h+='</section>'});return h}
 
 function status(){
   const connected=room?.getStatus()==='connected';
@@ -108,6 +122,8 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('click',e=>{
   const el=e.target;
+  const vb=el.closest?.('.vbar a');if(vb){e.preventDefault();document.getElementById('day-'+vb.getAttribute('href').split('-')[1])?.scrollIntoView({behavior:'smooth'});return;}
+  if(el.dataset?.ed){EDIT=!EDIT;render();return;}
   if(el.dataset?.f!==undefined){e.preventDefault();flt=el.dataset.f==='all'?'all':Number(el.dataset.f);render();return;}
   if(!ready)return;
   if(el.dataset?.del){const parts=el.dataset.del.split('.'),key=Number(parts.pop()),arr=resolve(trip,parts.join('.'));arr.delete(key,1);}
@@ -115,6 +131,8 @@ document.addEventListener('click',e=>{
     if(a==='book'){target=trip.get('book');value=['新项目','',0,'',''];}
     else if(a==='todo'){target=trip.get('todo');value=['新事项',0];}
     else if(a.startsWith('leg.')){target=trip.get('days').get(Number(a.split('.')[1])).get('legs');value=['','','transit',''];}
+    else if(a.startsWith('tr.')){target=trip.get('days').get(Number(a.split('.')[1])).get('trans');value=['',''];}
+    else if(a.startsWith('spot.')){target=trip.get('days').get(Number(a.split('.')[1])).get('spots');value=['',''];}
     else {target=trip.get('chk').get(Number(a.split('.')[1])).get(1);value=['新项目',0,'tbd',0];}
     target.push([shared(value)]);
   }
@@ -126,7 +144,7 @@ document.querySelector('#export').onclick=()=>{const url=URL.createObjectURL(new
 async function enter(user){
   me=user;document.querySelector('#login').hidden=true;document.querySelector('#logout').hidden=false;
   client=createClient({authEndpoint:'/api/liveblocks-auth',preventUnsavedChanges:true});
-  ({room}=client.enterRoom('europe-trip-v1',{initialPresence:{field:null}}));
+  ({room}=client.enterRoom('europe-trip-20261121-c9a80ba45989',{initialPresence:{field:null}}));
   provider=getYjsProviderForRoom(room);doc=provider.getYDoc();
   room.subscribe('status',status);room.subscribe('others',paintPeople);room.subscribe('error',()=>{document.querySelector('#mode').textContent='连接失败，请检查服务配置或退出后重新登录';});
   client.events?.syncStatus?.subscribe(status);setInterval(status,500);status();
